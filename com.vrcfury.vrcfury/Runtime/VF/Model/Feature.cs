@@ -495,6 +495,7 @@ namespace VF.Model.Feature {
         public string removeBoneSuffix;
         public float skinRewriteScalingFactor = 0;
         public bool scalingFactorPowersOf10Only = true;
+        public bool allowBindposeOverrideRotationFix = false;
         
         // legacy
         [Obsolete] public bool useOptimizedUpload;

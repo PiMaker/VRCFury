@@ -104,6 +104,16 @@ namespace VF.Feature {
                     }
                 }
 
+                // Check if we're above the rotation threshold relative to the target bone
+                // We need to do this before moving or rotating anything
+                var needsBindposeOverrideRotationFix =
+                    model.allowBindposeOverrideRotationFix &&
+                    ShouldReuseBone() &&
+                    Mathf.Abs(Quaternion.Dot(propBone.localRotation, avatarBone.localRotation)) < 0.98f;
+                var bindposeOverride = needsBindposeOverrideRotationFix
+                    ? Matrix4x4.Translate(avatarBone.worldPosition - propBone.worldPosition)
+                    : (Matrix4x4?)null;
+
                 // Move it on over
                 var newName = $"[VF{uniqueModelNum}] {propBone.name}";
                 if (propBone.name != rootName) newName += $" from {rootName}";
@@ -141,7 +151,7 @@ namespace VF.Feature {
                 }
 
                 if (ShouldReuseBone()) {
-                    RewriteSkins(propBone, avatarBone);
+                    RewriteSkins(propBone, avatarBone, bindposeOverride);
                 }
 
                 // If the transform isn't used and contains no children, we can just throw it away
@@ -175,7 +185,10 @@ namespace VF.Feature {
             }
         }
 
-        private void RewriteSkins(VFGameObject fromBone, VFGameObject toBone) {
+        private void RewriteSkins(VFGameObject fromBone, VFGameObject toBone, Matrix4x4? overrideBindPose) {
+            if (overrideBindPose.HasValue) {
+                Debug.LogWarning($"Applying bindpose override rotation fix on rewrite: '{fromBone.GetPath(avatarObject)}' -> '{toBone.GetPath(avatarObject)}'", toBone);
+            }
             foreach (var skin in avatarObject.GetComponentsInSelfAndChildren<SkinnedMeshRenderer>()) {
                 // Update skins to use bones and bind poses from the original avatar
                 if (skin.bones.Contains(fromBone.transform)) {
@@ -186,6 +199,8 @@ namespace VF.Feature {
                                 var bone = boneAndBindPose.a.asVf();
                                 var bindPose = boneAndBindPose.b;
                                 if (bone != fromBone) return bindPose;
+                                if (overrideBindPose.HasValue)
+                                    bindPose = toBone.worldToLocalMatrix * overrideBindPose.Value * skin.localToWorldMatrix;
                                 return toBone.worldToLocalMatrix * bone.localToWorldMatrix * bindPose;
                             }) 
                             .ToArray();
@@ -595,6 +610,13 @@ namespace VF.Feature {
                 prop.FindPropertyRelative("scalingFactorPowersOf10Only"),
                 label: "Restrict scaling factor to powers of 10"
             ));
+
+            var bindposeOverrideProp = VRCFuryEditorUtils.BetterProp(
+                prop.FindPropertyRelative("allowBindposeOverrideRotationFix"),
+                label: "Allow bindpose override rotation fix",
+                tooltip: "If yes, VRCFury will attempt a workaround for aligning bones that have rotations that are too far mismatched between the source and target armature. Only enable if it produces the results you want."
+            );
+            alignment.Add(bindposeOverrideProp);
             
             var chestUpWarning = VRCFuryEditorUtils.Warn(
                 "These clothes are designed for an avatar with a different ChestUp configuration. You may" +
@@ -611,6 +633,8 @@ namespace VF.Feature {
                 }
 
                 var linkMode = GetLinkMode();
+
+                bindposeOverrideProp.SetVisible(linkMode == ArmatureLink.ArmatureLinkMode.SkinRewrite);
 
                 var links = GetLinks();
                 if (links == null) {
