@@ -919,6 +919,10 @@ namespace VF.Model.Feature {
     }
 
     [Serializable]
+    public class ZeroBlendshapeNormals : NewFeatureModel {
+    }
+
+    [Serializable]
     public class Slot4Fix : NewFeatureModel {
     }
 
