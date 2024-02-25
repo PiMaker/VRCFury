@@ -42,7 +42,7 @@ namespace VF.Feature {
             var keepBoneOffsets = GetKeepBoneOffsets(linkMode);
 
             var (_, _, scalingFactor) = GetScalingFactor(links, linkMode);
-            Debug.Log("Detected scaling factor: " + scalingFactor);
+            Debug.Log($"Detected scaling factor: {scalingFactor} on {model.propBone.name}");
 
             var anim = findAnimatedTransformsService.Find();
             var avatarHumanoidBones = VRCFArmatureUtils.GetAllBones(avatarObject).ToImmutableHashSet();
@@ -110,9 +110,11 @@ namespace VF.Feature {
                     model.allowBindposeOverrideRotationFix &&
                     ShouldReuseBone() &&
                     Mathf.Abs(Quaternion.Dot(propBone.localRotation, avatarBone.localRotation)) < 0.98f;
-                var bindposeOverride = needsBindposeOverrideRotationFix
-                    ? Matrix4x4.Translate(avatarBone.worldPosition - propBone.worldPosition)
-                    : (Matrix4x4?)null;
+                var bindPoseOverride = new RewriteSkinsBindPoseOverride() {
+                    enabled = needsBindposeOverrideRotationFix,
+                    scaleMatrix = Matrix4x4.Scale(Vector3.one / scalingFactor),
+                    bindposeOverride = Matrix4x4.Translate(avatarBone.worldPosition - propBone.worldPosition),
+                };
 
                 // Move it on over
                 var newName = $"[VF{uniqueModelNum}] {propBone.name}";
@@ -151,7 +153,7 @@ namespace VF.Feature {
                 }
 
                 if (ShouldReuseBone()) {
-                    RewriteSkins(propBone, avatarBone, bindposeOverride);
+                    RewriteSkins(propBone, avatarBone, bindPoseOverride);
                 }
 
                 // If the transform isn't used and contains no children, we can just throw it away
@@ -185,8 +187,14 @@ namespace VF.Feature {
             }
         }
 
-        private void RewriteSkins(VFGameObject fromBone, VFGameObject toBone, Matrix4x4? overrideBindPose) {
-            if (overrideBindPose.HasValue) {
+        private struct RewriteSkinsBindPoseOverride {
+            public bool enabled;
+            public Matrix4x4 bindposeOverride;
+            public Matrix4x4 scaleMatrix;
+        }
+
+        private void RewriteSkins(VFGameObject fromBone, VFGameObject toBone, RewriteSkinsBindPoseOverride bindPoseOverride) {
+            if (bindPoseOverride.enabled) {
                 Debug.LogWarning($"Applying bindpose override rotation fix on rewrite: '{fromBone.GetPath(avatarObject)}' -> '{toBone.GetPath(avatarObject)}'", toBone);
             }
             foreach (var skin in avatarObject.GetComponentsInSelfAndChildren<SkinnedMeshRenderer>()) {
@@ -199,8 +207,8 @@ namespace VF.Feature {
                                 var bone = boneAndBindPose.a.asVf();
                                 var bindPose = boneAndBindPose.b;
                                 if (bone != fromBone) return bindPose;
-                                if (overrideBindPose.HasValue)
-                                    bindPose = toBone.worldToLocalMatrix * overrideBindPose.Value * skin.localToWorldMatrix;
+                                if (bindPoseOverride.enabled)
+                                    bindPose = bindPoseOverride.scaleMatrix * toBone.worldToLocalMatrix * bindPoseOverride.bindposeOverride * skin.localToWorldMatrix;
                                 return toBone.worldToLocalMatrix * bone.localToWorldMatrix * bindPose;
                             }) 
                             .ToArray();
