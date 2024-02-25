@@ -496,6 +496,7 @@ namespace VF.Model.Feature {
         public float skinRewriteScalingFactor = 0;
         public bool scalingFactorPowersOf10Only = true;
         public bool allowBindposeOverrideRotationFix = false;
+        public bool forceBindposeOverrideRotationFix = false;
         
         // legacy
         [Obsolete] public bool useOptimizedUpload;

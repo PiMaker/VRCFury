@@ -111,7 +111,7 @@ namespace VF.Feature {
                     ShouldReuseBone() &&
                     Mathf.Abs(Quaternion.Dot(propBone.localRotation, avatarBone.localRotation)) < 0.98f;
                 var bindPoseOverride = new RewriteSkinsBindPoseOverride() {
-                    enabled = needsBindposeOverrideRotationFix,
+                    enabled = (model.forceBindposeOverrideRotationFix || needsBindposeOverrideRotationFix) && !links.reparent.Any(x => x.Item1 == propBone),
                     scaleMatrix = Matrix4x4.Scale(Vector3.one / scalingFactor),
                     bindposeOverride = Matrix4x4.Translate(avatarBone.worldPosition - propBone.worldPosition),
                 };
@@ -624,7 +624,13 @@ namespace VF.Feature {
                 label: "Allow bindpose override rotation fix",
                 tooltip: "If yes, VRCFury will attempt a workaround for aligning bones that have rotations that are too far mismatched between the source and target armature. Only enable if it produces the results you want."
             );
+            var bindposeForceProp = VRCFuryEditorUtils.BetterProp(
+                prop.FindPropertyRelative("forceBindposeOverrideRotationFix"),
+                label: "Force bindpose override rotation fix",
+                tooltip: "If yes, VRCFury will always apply the bindpose override rotation fix, even if it doesn't detect a mismatch. Only enable if it produces the results you want."
+            );
             alignment.Add(bindposeOverrideProp);
+            alignment.Add(bindposeForceProp);
             
             var chestUpWarning = VRCFuryEditorUtils.Warn(
                 "These clothes are designed for an avatar with a different ChestUp configuration. You may" +
@@ -643,6 +649,7 @@ namespace VF.Feature {
                 var linkMode = GetLinkMode();
 
                 bindposeOverrideProp.SetVisible(linkMode == ArmatureLink.ArmatureLinkMode.SkinRewrite);
+                bindposeForceProp.SetVisible(linkMode == ArmatureLink.ArmatureLinkMode.SkinRewrite);
 
                 var links = GetLinks();
                 if (links == null) {
