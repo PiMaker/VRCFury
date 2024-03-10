@@ -38,6 +38,7 @@ namespace VF.Feature.Base {
         SenkyGestureDriver,
         // Needs to run after all possible toggles have been created and applied
         CollectToggleExclusiveTags,
+        ShrinkBlendshape,
         
         // Needs to happen after all controller params (and their types) are in place
         DriveNonFloatTypes,

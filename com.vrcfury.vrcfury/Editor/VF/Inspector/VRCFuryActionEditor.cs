@@ -336,6 +336,26 @@ public class VRCFuryActionDrawer : PropertyDrawer {
 
                 return content;
             }
+            case nameof(ShrinkBlendshapeAction): {
+                var content = new VisualElement();
+
+                content.Add(Title("Shrink BlendShape"));
+
+                content.Add(VRCFuryEditorUtils.Info(
+                    "This action should be used if a BlendShape is used to shrink away parts of the mesh below, but needs to be driven from multiple toggles."
+                ));
+
+                var allRenderersProp = prop.FindPropertyRelative("allRenderers");
+                var rendererProp = prop.FindPropertyRelative("renderer");
+                content.Add(RendererSelector(allRenderersProp, rendererProp));
+
+                var blendshapeProp = prop.FindPropertyRelative("blendShape");
+                content.Add(BlendshapeSelector(avatarObject, blendshapeProp, allRenderersProp, rendererProp));
+
+                content.Add(VRCFuryEditorUtils.Prop(prop.FindPropertyRelative("type"), "Shrink Type"));
+
+                return content;
+            }
             case nameof(AnimationClipAction): {
                 var row = new VisualElement().Row();
                 row.Add(Title("Animation Clip").FlexBasis(100));

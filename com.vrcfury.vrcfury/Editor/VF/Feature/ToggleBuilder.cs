@@ -305,6 +305,89 @@ public class ToggleBuilder : FeatureBuilder<Toggle> {
         }
     }
 
+    [FeatureBuilderAction(FeatureOrder.ShrinkBlendshape)]
+    public void ApplyShrinkBlendshapeController() {
+        if (!IsFirst())
+            return;
+
+        var allRenderers = avatarObject.GetComponentsInSelfAndChildren<SkinnedMeshRenderer>();
+
+        var shrinkGroups = allBuildersInRun
+            .Where(b => b is ToggleBuilder)
+            .Cast<ToggleBuilder>()
+            .Select(b => {
+                var param = b.exclusiveParam;
+                var drives = b.model.state.actions
+                    .Where(a => a is ShrinkBlendshapeAction)
+                    .Cast<ShrinkBlendshapeAction>();
+                var drivesByRenderer = drives
+                    .SelectMany(d =>
+                        (d.allRenderers ? allRenderers : new[] { d.renderer })
+                            .Select(renderer => (renderer, action: d)))
+                    .ToArray();
+                return (param, drivesByRenderer);
+            })
+            // invert from "this param drives these blendshapes on these renderers", to "the blendshapes on these renderers are driven by these params"
+            .SelectMany(p => p.drivesByRenderer.Select(d => (d.renderer, d.action, p.param)))
+            .GroupBy(p => (p.renderer, p.action.blendShape));
+
+        var fx = GetFx();
+
+        foreach (var group in shrinkGroups) {
+            //Debug.Log($"Shrinking blendshape {group.Key.blendShape}@{group.Key.renderer.name} is driven by: {string.Join(", ", group.Select(p => p.param.Name()))}");
+            var layer = fx.NewLayer($"Shrink Blendshape {group.Key.blendShape}@{group.Key.renderer.name}");
+            var idle = layer.NewState("Idle");
+            var shrunk = layer.NewState("Shrunk");
+            bool? invert = null;
+            foreach (var action in group)
+            {
+                if (action.action.type == ShrinkBlendshapeAction.ShrinkBlendshapeType.ShrinkWhenInactive)
+                {
+                    if (invert.HasValue && invert.Value != true)
+                        throw new Exception($"ShrinkWhenInactive and ShrinkWhenActive cannot be mixed for the same blendshape: {action.action.blendShape}@{action.renderer.name}");
+                    invert = true;
+                }
+                else if (action.action.type == ShrinkBlendshapeAction.ShrinkBlendshapeType.ShrinkWhenActive)
+                {
+                    if (invert.HasValue && invert.Value != false)
+                        throw new Exception($"ShrinkWhenInactive and ShrinkWhenActive cannot be mixed for the same blendshape: {action.action.blendShape}@{action.renderer.name}");
+                    invert = false;
+                }
+            }
+            if (invert == null) continue; // no actions??
+            var clips = actionClipService.LoadStateAdv("Shrink Blendshape", new State() {
+                actions = new() {
+                    new BlendShapeAction() {
+                        allRenderers = false,
+                        renderer = group.Key.renderer,
+                        blendShape = group.Key.blendShape,
+                        blendShapeValue = invert.Value ? 0 : 100,
+                        blendShapeValueOff = invert.Value ? 100 : 0,
+                        hasBlendShapeValueOff = true,
+                    }
+                }
+            });
+            shrunk.WithAnimation(clips.onClip);
+            idle.WithAnimation(clips.implicitRestingClip);
+            var allParams = group.Where(p => p.action.type != ShrinkBlendshapeAction.ShrinkBlendshapeType.PreventActivationWhenActive).Select(p => p.param.IsFalse());
+            var allPreventParams = group.Where(p => p.action.type == ShrinkBlendshapeAction.ShrinkBlendshapeType.PreventActivationWhenActive).Select(p => p.param.IsFalse());
+            if (!allPreventParams.Any())
+            {
+                shrunk.TransitionsTo(idle).When(allParams.Aggregate((a, b) => a.And(b)));
+                idle.TransitionsTo(shrunk).When(allParams.Select(p => p.Not()).Aggregate((a, b) => a.Or(b)));
+            }
+            else
+            {
+                var allPreventOr = allPreventParams.Select(p => p.Not()).Aggregate((c, d) => c.Or(d));
+                var allPreventAnd = allPreventParams.Aggregate((c, d) => c.And(d));
+                shrunk.TransitionsTo(idle).When(
+                    allParams.Aggregate((a, b) => a.And(b)).Or(allPreventOr));
+                idle.TransitionsTo(shrunk).When(
+                    allParams.Select(p => p.Not()).Select(p => p.And(allPreventAnd)).Aggregate((a, b) => a.Or(b)));
+            }
+        }
+    }
+
     public override string GetClipPrefix() {
         return "Toggle " + model.name.Replace('/', '_');
     }

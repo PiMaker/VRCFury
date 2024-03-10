@@ -29,6 +29,8 @@ public class VRCFuryStateEditor : PropertyDrawer {
                 () => { VRCFuryEditorUtils.AddToList(list, entry => entry.managedReferenceValue = new ObjectToggleAction()); });
             menu.AddItem(new GUIContent("BlendShape"), false,
                 () => { VRCFuryEditorUtils.AddToList(list, entry => entry.managedReferenceValue = new BlendShapeAction()); });
+            menu.AddItem(new GUIContent("Shrink BlendShape"), false,
+                () => { VRCFuryEditorUtils.AddToList(list, entry => entry.managedReferenceValue = new ShrinkBlendshapeAction()); });
             menu.AddItem(new GUIContent("Animation Clip"), false,
                 () => { VRCFuryEditorUtils.AddToList(list, entry => entry.managedReferenceValue = new AnimationClipAction()); });
             menu.AddItem(new GUIContent("Poiyomi Flipbook Frame"), false,

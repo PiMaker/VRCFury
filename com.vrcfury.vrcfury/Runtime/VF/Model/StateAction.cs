@@ -54,6 +54,21 @@ namespace VF.Model.StateAction {
         public bool hasBlendShapeValueOff;
         public float blendShapeValueOff;
     }
+
+    [Serializable]
+    public class ShrinkBlendshapeAction : Action {
+        public bool allRenderers = true;
+        public Renderer renderer;
+        public string blendShape;
+        public ShrinkBlendshapeType type = ShrinkBlendshapeType.ShrinkWhenActive;
+
+        [Serializable]
+        public enum ShrinkBlendshapeType {
+            ShrinkWhenActive,
+            ShrinkWhenInactive,
+            PreventActivationWhenActive,
+        }
+    }
     
     [Serializable]
     public class MaterialAction : Action {
