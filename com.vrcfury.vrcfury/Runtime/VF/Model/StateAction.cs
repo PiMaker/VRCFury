@@ -67,6 +67,7 @@ namespace VF.Model.StateAction {
             ShrinkWhenActive,
             ShrinkWhenInactive,
             PreventActivationWhenActive,
+            PreventActivationWhenInactive,
         }
     }
     

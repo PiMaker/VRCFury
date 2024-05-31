@@ -369,17 +369,30 @@ public class ToggleBuilder : FeatureBuilder<Toggle> {
             });
             shrunk.WithAnimation(clips.onClip);
             idle.WithAnimation(clips.implicitRestingClip);
-            var allParams = group.Where(p => p.action.type != ShrinkBlendshapeAction.ShrinkBlendshapeType.PreventActivationWhenActive).Select(p => p.param.IsFalse());
-            var allPreventParams = group.Where(p => p.action.type == ShrinkBlendshapeAction.ShrinkBlendshapeType.PreventActivationWhenActive).Select(p => p.param.IsFalse());
-            if (!allPreventParams.Any())
+            var allParams = group
+                .Where(p => p.action.type != ShrinkBlendshapeAction.ShrinkBlendshapeType.PreventActivationWhenActive && p.action.type != ShrinkBlendshapeAction.ShrinkBlendshapeType.PreventActivationWhenInactive)
+                .Select(p => p.param.IsFalse());
+            var allPreventParams = group
+                .Where(p => p.action.type == ShrinkBlendshapeAction.ShrinkBlendshapeType.PreventActivationWhenActive)
+                .Select(p => p.param.IsFalse());
+            var allPreventNegateParams = group
+                .Where(p => p.action.type == ShrinkBlendshapeAction.ShrinkBlendshapeType.PreventActivationWhenInactive)
+                .Select(p => p.param.IsFalse());
+            if (!allPreventParams.Any() && !allPreventNegateParams.Any())
             {
                 shrunk.TransitionsTo(idle).When(allParams.Aggregate((a, b) => a.And(b)));
                 idle.TransitionsTo(shrunk).When(allParams.Select(p => p.Not()).Aggregate((a, b) => a.Or(b)));
             }
             else
             {
-                var allPreventOr = allPreventParams.Select(p => p.Not()).Aggregate((c, d) => c.Or(d));
-                var allPreventAnd = allPreventParams.Aggregate((c, d) => c.And(d));
+                var allPreventOr = allPreventParams
+                    .Select(p => p.Not())
+                    .Concat(allPreventNegateParams)
+                    .Aggregate((c, d) => c.Or(d));
+                var allPreventAnd = allPreventNegateParams
+                    .Select(p => p.Not())
+                    .Concat(allPreventParams)
+                    .Aggregate((c, d) => c.And(d));
                 shrunk.TransitionsTo(idle).When(
                     allParams.Aggregate((a, b) => a.And(b)).Or(allPreventOr));
                 idle.TransitionsTo(shrunk).When(
